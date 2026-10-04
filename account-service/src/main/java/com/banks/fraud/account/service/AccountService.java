@@ -4,6 +4,7 @@ import com.banks.fraud.account.domain.Account;
 import com.banks.fraud.account.domain.AccountStatus;
 import com.banks.fraud.account.dto.AccountResponse;
 import com.banks.fraud.account.dto.CreateAccountRequest;
+import com.banks.fraud.account.exception.AccountNotActiveException;
 import com.banks.fraud.account.exception.AccountNotFoundException;
 import com.banks.fraud.account.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -57,14 +59,36 @@ public class AccountService {
     }
 
     public List<AccountResponse> listAccounts() {
-        return accountRepository.findAll().stream().map(this::toResponse).toList();
+        return accountRepository.findAll().stream()
+                .sorted(Comparator.comparing(Account::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(this::toResponse)
+                .toList();
     }
 
     /** Manual funding endpoint for demo purposes - not part of the saga. */
     public AccountResponse deposit(String accountId, BigDecimal amount) {
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new AccountNotFoundException(accountId));
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new AccountNotActiveException(accountId);
+        }
         accountRepository.creditMinorUnits(accountId, toMinorUnits(amount));
+        return toResponse(account);
+    }
+
+    /**
+     * Blocks, re-activates or closes an account. A non-ACTIVE source account makes the
+     * debit step of any new transfer saga fail with ACCOUNT_NOT_ACTIVE.
+     */
+    public AccountResponse updateStatus(String accountId, AccountStatus status) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new AccountNotFoundException(accountId));
+        if (account.getStatus() == AccountStatus.CLOSED && status != AccountStatus.CLOSED) {
+            throw new IllegalArgumentException("A closed account cannot be re-opened: " + accountId);
+        }
+        account.setStatus(status);
+        accountRepository.updateMetadata(account);
+        log.info("Account {} moved to status {}", accountId, status);
         return toResponse(account);
     }
 
@@ -77,10 +101,10 @@ public class AccountService {
         return withAccountLock(accountId, idempotencyKey, () -> {
             var accountOpt = accountRepository.findById(accountId);
             if (accountOpt.isEmpty()) {
-                return OperationResult.failure("ACCOUNT_NOT_FOUND");
+                return OperationResult.failed("ACCOUNT_NOT_FOUND");
             }
             if (accountOpt.get().getStatus() != AccountStatus.ACTIVE) {
-                return OperationResult.failure("ACCOUNT_NOT_ACTIVE");
+                return OperationResult.failed("ACCOUNT_NOT_ACTIVE");
             }
             long minorAmount = toMinorUnits(amount);
             Long result = stringRedisTemplate.execute(
@@ -89,10 +113,10 @@ public class AccountService {
                     String.valueOf(minorAmount));
             if (result != null && result == 1L) {
                 log.info("Debited {} minor units from account {} (saga={})", minorAmount, accountId, idempotencyKey);
-                return OperationResult.success();
+                return OperationResult.ok();
             }
             log.warn("Debit rejected for account {} - insufficient funds (saga={})", accountId, idempotencyKey);
-            return OperationResult.failure("INSUFFICIENT_FUNDS");
+            return OperationResult.failed("INSUFFICIENT_FUNDS");
         });
     }
 
@@ -104,12 +128,12 @@ public class AccountService {
         return withAccountLock(accountId, idempotencyKey, () -> {
             var accountOpt = accountRepository.findById(accountId);
             if (accountOpt.isEmpty()) {
-                return OperationResult.failure("ACCOUNT_NOT_FOUND");
+                return OperationResult.failed("ACCOUNT_NOT_FOUND");
             }
             long minorAmount = toMinorUnits(amount);
             accountRepository.creditMinorUnits(accountId, minorAmount);
             log.info("Credited {} minor units to account {} (saga={})", minorAmount, accountId, idempotencyKey);
-            return OperationResult.success();
+            return OperationResult.ok();
         });
     }
 
@@ -132,10 +156,10 @@ public class AccountService {
             locked = lock.tryLock(LOCK_WAIT.toSeconds(), LOCK_LEASE.toSeconds(), TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return OperationResult.failure("LOCK_INTERRUPTED");
+            return OperationResult.failed("LOCK_INTERRUPTED");
         }
         if (!locked) {
-            return OperationResult.failure("LOCK_TIMEOUT");
+            return OperationResult.failed("LOCK_TIMEOUT");
         }
         try {
             // Re-check cache: another thread may have completed the same operation

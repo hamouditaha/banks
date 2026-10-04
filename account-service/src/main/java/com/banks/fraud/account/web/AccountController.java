@@ -3,6 +3,7 @@ package com.banks.fraud.account.web;
 import com.banks.fraud.account.dto.AccountResponse;
 import com.banks.fraud.account.dto.CreateAccountRequest;
 import com.banks.fraud.account.dto.DepositRequest;
+import com.banks.fraud.account.dto.UpdateStatusRequest;
 import com.banks.fraud.account.service.AccountService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +38,10 @@ public class AccountController {
     @PostMapping("/{accountId}/deposit")
     public AccountResponse deposit(@PathVariable String accountId, @Valid @RequestBody DepositRequest request) {
         return accountService.deposit(accountId, request.amount());
+    }
+
+    @PatchMapping("/{accountId}/status")
+    public AccountResponse updateStatus(@PathVariable String accountId, @Valid @RequestBody UpdateStatusRequest request) {
+        return accountService.updateStatus(accountId, request.status());
     }
 }
