@@ -7,11 +7,11 @@ package com.banks.fraud.account.service;
  */
 public record OperationResult(boolean success, String reason) {
 
-    public static OperationResult success() {
+    public static OperationResult ok() {
         return new OperationResult(true, null);
     }
 
-    public static OperationResult failure(String reason) {
+    public static OperationResult failed(String reason) {
         return new OperationResult(false, reason);
     }
 
@@ -21,8 +21,8 @@ public record OperationResult(boolean success, String reason) {
 
     public static OperationResult fromCacheValue(String cached) {
         if ("OK".equals(cached)) {
-            return success();
+            return ok();
         }
-        return failure(cached.substring("FAIL:".length()));
+        return failed(cached.substring("FAIL:".length()));
     }
 }

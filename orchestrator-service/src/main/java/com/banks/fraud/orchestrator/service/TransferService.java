@@ -14,6 +14,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -62,7 +63,14 @@ public class TransferService {
         return SagaStatusResponse.from(saga);
     }
 
-    public List<SagaStatusResponse> listAll() {
-        return sagaRepository.findAll().stream().map(SagaStatusResponse::from).toList();
+    /** Lists transfers newest-first, optionally only those where {@code accountId} is the sender or receiver. */
+    public List<SagaStatusResponse> list(String accountId) {
+        return sagaRepository.findAll().stream()
+                .filter(saga -> accountId == null
+                        || accountId.equals(saga.getFromAccountId())
+                        || accountId.equals(saga.getToAccountId()))
+                .sorted(Comparator.comparing(SagaState::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
+                .map(SagaStatusResponse::from)
+                .toList();
     }
 }

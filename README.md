@@ -8,6 +8,10 @@ with money transfers coordinated by an **orchestration-based SAGA**.
 
 ```
                         ┌──────────────┐
+                        │   frontend   │  :4200 (Angular)
+                        └──────┬───────┘
+                               │ /api
+                        ┌──────▼───────┐
                         │  api-gateway │  :8080
                         └──────┬───────┘
                                │
@@ -40,8 +44,9 @@ by the gateway for load-balanced routing.
 
 | Service | Responsibility |
 |---|---|
+| `frontend` | Angular 19 back-office UI: accounts, transfers with live saga tracking, fraud dashboard |
 | `discovery-server` | Eureka service registry |
-| `api-gateway` | Single entry point, routes `/api/accounts/**`, `/api/transfers/**`, `/api/notifications/**` |
+| `api-gateway` | Single entry point (CORS-enabled), routes `/api/accounts/**`, `/api/transfers/**`, `/api/notifications/**`, `/api/fraud/**` |
 | `account-service` | Owns accounts & balances (Redis), atomic debit/credit, participates in the saga |
 | `fraud-detection-service` | Rule-based fraud engine (blacklist, amount thresholds, velocity), participates in the saga |
 | `orchestrator-service` | Drives the transfer SAGA end-to-end, owns saga state, issues compensations |
@@ -110,7 +115,43 @@ Configured in `fraud-detection-service/src/main/resources/application.yml`:
 - **Velocity** - more than 5 transfers from the same source account in a 60s sliding window adds 50.
 - Rejected once the accumulated score reaches 70 (`fraud.rules.reject-score-threshold`).
 
-Manage the blacklist live via `POST/DELETE /api/fraud/blacklist/{accountId}` (fraud-detection-service, :8082) to demo a rejection + compensation without changing config.
+Manage the blacklist live via `POST/DELETE /api/fraud/blacklist/{accountId}` to demo a rejection + compensation without changing config.
+Every decision is logged (capped Redis list `fraud:evaluations`) and exposed with the active rules.
+
+## REST API (through the gateway, :8080)
+
+| Method | Path | Description |
+|---|---|---|
+| `POST` | `/api/accounts` | Open an account `{ownerName, currency, openingBalance}` |
+| `GET` | `/api/accounts` | List accounts (newest first) |
+| `GET` | `/api/accounts/{id}` | Account with its balance |
+| `POST` | `/api/accounts/{id}/deposit` | Deposit `{amount}` (active accounts only) |
+| `PATCH` | `/api/accounts/{id}/status` | Block / unblock / close `{status: ACTIVE\|BLOCKED\|CLOSED}` |
+| `POST` | `/api/transfers` | Start a transfer saga `{fromAccountId, toAccountId, amount}` |
+| `GET` | `/api/transfers?accountId=` | List transfers, optionally for one account |
+| `GET` | `/api/transfers/{sagaId}` | Saga status and history |
+| `GET` | `/api/notifications/{accountId}` | Notifications of an account |
+| `GET` | `/api/fraud/rules` | Active fraud rule configuration |
+| `GET` | `/api/fraud/evaluations?limit=` | Recent fraud decisions |
+| `GET/POST/DELETE` | `/api/fraud/blacklist[/{accountId}]` | Manage the blacklist |
+
+## Frontend (Angular)
+
+The `frontend/` folder is an Angular 19 app (standalone components, signals, lazy-loaded routes):
+
+- **Tableau de bord** - KPIs (accounts, outstanding balances, success rate, fraud rejections), latest transfers and alerts.
+- **Comptes** - open accounts, search, account page with deposit, block/unblock/close, blacklist toggle,
+  transfer history and notifications.
+- **Virements** - new transfer form, filterable history that refreshes while sagas are in flight,
+  and a detail page that follows each saga step live (debit → fraud check → credit / compensation).
+- **Anti-fraude** - active rules, blacklist management, recent decisions with risk score and triggered rules.
+
+```bash
+cd frontend
+npm install
+npm start          # http://localhost:4200, /api is proxied to the gateway on :8080
+npm run build      # production bundle in dist/frontend
+```
 
 ## Running it
 
@@ -121,8 +162,8 @@ docker compose up --build
 ```
 
 This builds each service from source (multi-stage Maven build) and starts Redis, Kafka (KRaft,
-single broker), Kafka UI (http://localhost:8090), Eureka (http://localhost:8761), the gateway
-and all four business services.
+single broker), Kafka UI (http://localhost:8090), Eureka (http://localhost:8761), the gateway,
+all four business services and the Angular frontend served by nginx on http://localhost:4200.
 
 ### Option B: Infra in Docker, services from your IDE/Maven
 
@@ -163,7 +204,7 @@ curl -s localhost:8080/api/transfers/$SAGA_ID
 # status progresses: DEBIT_PENDING -> FRAUD_CHECK_PENDING -> CREDIT_PENDING -> COMPLETED
 
 # 3. Trigger a fraud rejection + compensation
-curl -s -X POST localhost:8082/api/fraud/blacklist/$BOB_ID
+curl -s -X POST localhost:8080/api/fraud/blacklist/$BOB_ID
 curl -s -X POST localhost:8080/api/transfers \
   -H 'Content-Type: application/json' \
   -d "{\"fromAccountId\":\"$ALICE_ID\",\"toAccountId\":\"$BOB_ID\",\"amount\":50}"
@@ -177,6 +218,7 @@ curl -s localhost:8080/api/notifications/$ALICE_ID
 
 - Add a config-server for centralized configuration.
 - Replace the rule-based engine with rules + an ML anomaly-scoring model.
+- Add authentication (e.g. Keycloak + Spring Security OAuth2 resource servers) in front of the gateway.
 - Add Testcontainers-based integration tests (spin up real Redis + Kafka per test run).
 - Add an outbox pattern in `account-service`/`orchestrator-service` if you need exactly-once
   publication guarantees stronger than the current at-least-once + idempotency-key approach.
