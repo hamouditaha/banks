@@ -29,7 +29,7 @@ public class TransferController {
     }
 
     @GetMapping
-    public List<SagaStatusResponse> listAll() {
-        return transferService.listAll();
+    public List<SagaStatusResponse> list(@RequestParam(required = false) String accountId) {
+        return transferService.list(accountId);
     }
 }
