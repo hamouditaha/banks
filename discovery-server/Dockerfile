@@ -8,12 +8,13 @@ COPY account-service/pom.xml account-service/pom.xml
 COPY fraud-detection-service/pom.xml fraud-detection-service/pom.xml
 COPY orchestrator-service/pom.xml orchestrator-service/pom.xml
 COPY notification-service/pom.xml notification-service/pom.xml
+COPY integration-tests/pom.xml integration-tests/pom.xml
 COPY common-events common-events
 COPY discovery-server discovery-server
 RUN mvn -q -pl discovery-server -am package -DskipTests
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=build /workspace/discovery-server/target/*.jar app.jar
+COPY --from=build /workspace/discovery-server/target/*-exec.jar app.jar
 EXPOSE 8761
 ENTRYPOINT ["java", "-jar", "app.jar"]

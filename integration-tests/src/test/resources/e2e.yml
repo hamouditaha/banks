@@ -1,0 +1,35 @@
+# Shared configuration for the services booted by the end-to-end tests. Loaded instead of the
+# services' own application.yml files (they all sit at the classpath root, so only one would win).
+# Container coordinates, port and application name are passed per service on the command line.
+server:
+  port: 0
+
+eureka:
+  client:
+    enabled: false
+
+spring:
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.banks.fraud.common.event"
+
+fraud:
+  rules:
+    large-amount-threshold: 10000
+    very-large-amount-threshold: 50000
+    velocity-window-seconds: 60
+    velocity-max-transactions: 5
+    reject-score-threshold: 70
+
+logging:
+  level:
+    root: WARN
+    com.banks.fraud: INFO

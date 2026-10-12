@@ -21,6 +21,8 @@
         <redisson.version>3.37.0</redisson.version>
         <lombok.version>1.18.34</lombok.version>
         <mapstruct.version>1.6.2</mapstruct.version>
+        <maven-failsafe-plugin.version>3.2.5</maven-failsafe-plugin.version>
+        <testcontainers.version>1.21.4</testcontainers.version>
     </properties>
 
     <modules>
@@ -31,10 +33,20 @@
         <module>fraud-detection-service</module>
         <module>orchestrator-service</module>
         <module>notification-service</module>
+        <module>integration-tests</module>
     </modules>
 
     <dependencyManagement>
         <dependencies>
+            <!-- Declared before spring-boot-dependencies so it wins over Boot's 1.19.8, which
+                 cannot talk to Docker Engine 29+ (minimum API version raised to 1.44). -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -73,6 +85,24 @@
                         <execution>
                             <goals>
                                 <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <!-- Keep the plain jar as the main artifact so services can be used as test
+                             dependencies (integration-tests module); the runnable jar is *-exec.jar. -->
+                        <classifier>exec</classifier>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
                             </goals>
                         </execution>
                     </executions>
