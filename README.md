@@ -1,5 +1,7 @@
 # Banks Fraud Detection System
 
+[![CI](https://github.com/hamouditaha/banks/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hamouditaha/banks/actions/workflows/ci.yml)
+
 Digital banking system with real-time fraud detection, built as Spring Boot microservices
 communicating over **Kafka**, backed entirely by **Redis** (system of record, not just a cache),
 with money transfers coordinated by an **orchestration-based SAGA**.
