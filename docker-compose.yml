@@ -46,6 +46,20 @@ services:
     depends_on:
       - kafka
 
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    container_name: banks-keycloak
+    # Listens on 8180 both inside and outside the network, so http://localhost:8180 (browser,
+    # token issuer) and http://keycloak:8180 (gateway fetching signing keys) hit the same port.
+    command: ["start-dev", "--import-realm", "--http-port=8180"]
+    ports:
+      - "8180:8180"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+
   discovery-server:
     build:
       context: .
@@ -69,9 +83,16 @@ services:
       - "8080:8080"
     environment:
       EUREKA_URI: http://discovery-server:8761/eureka/
+      # Tokens are issued to the browser via localhost:8180; keys are fetched over the Docker network.
+      KEYCLOAK_ISSUER_URI: http://localhost:8180/realms/banks
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8180/realms/banks/protocol/openid-connect/certs
+      # Set to "dev" to disable authentication on the gateway.
+      SPRING_PROFILES_ACTIVE: ${GATEWAY_PROFILE:-default}
     depends_on:
       discovery-server:
         condition: service_healthy
+      keycloak:
+        condition: service_started
 
   account-service:
     build:

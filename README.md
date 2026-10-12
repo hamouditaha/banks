@@ -164,17 +164,24 @@ docker compose up --build
 ```
 
 This builds each service from source (multi-stage Maven build) and starts Redis, Kafka (KRaft,
-single broker), Kafka UI (http://localhost:8090), Eureka (http://localhost:8761), the gateway,
-all four business services and the Angular frontend served by nginx on http://localhost:4200.
+single broker), Kafka UI (http://localhost:8090), Keycloak (http://localhost:8180), Eureka
+(http://localhost:8761), the gateway, all four business services and the Angular frontend served
+by nginx on http://localhost:4200. Log in with `admin` / `admin` (ADMIN) or `client` / `client`
+(CLIENT) - see [Security](#security).
 
 ### Option B: Infra in Docker, services from your IDE/Maven
+
+Quick local demo without authentication: the gateway runs with the `dev` Spring profile and
+`npm start` serves the frontend without Keycloak.
 
 ```bash
 docker compose up redis kafka kafka-ui
 mvn clean install
 # then run each *Application main class, or:
 mvn -pl discovery-server spring-boot:run
-mvn -pl api-gateway spring-boot:run
+mvn -pl api-gateway spring-boot:run -Dspring-boot.run.profiles=dev   # no auth
+# (or start Keycloak too - docker compose up keycloak - and drop the profile to keep auth on;
+#  then use `npm run start:auth` for the frontend)
 mvn -pl account-service spring-boot:run
 mvn -pl fraud-detection-service spring-boot:run
 mvn -pl orchestrator-service spring-boot:run
@@ -183,44 +190,51 @@ mvn -pl notification-service spring-boot:run
 
 ## Demo walkthrough
 
-All requests below go through the gateway on `:8080`.
+All requests below go through the gateway on `:8080`. With authentication on, first get a token
+(the `banks-cli` client allows the password grant for this local demo) and send it with every
+call - or run the gateway with the `dev` profile and drop the `-H "$AUTH"` lines.
 
 ```bash
+# 0. Token for the admin user (needed for /api/fraud/**)
+TOKEN=$(curl -s -X POST localhost:8180/realms/banks/protocol/openid-connect/token \
+  -d grant_type=password -d client_id=banks-cli -d username=admin -d password=admin | jq -r .access_token)
+AUTH="Authorization: Bearer $TOKEN"
+
 # 1. Create two accounts
-curl -s -X POST localhost:8080/api/accounts \
+curl -s -X POST localhost:8080/api/accounts -H "$AUTH" \
   -H 'Content-Type: application/json' \
   -d '{"ownerName":"Alice","currency":"USD","openingBalance":5000}'
 # => note the returned "id" as ALICE_ID
 
-curl -s -X POST localhost:8080/api/accounts \
+curl -s -X POST localhost:8080/api/accounts -H "$AUTH" \
   -H 'Content-Type: application/json' \
   -d '{"ownerName":"Bob","currency":"USD","openingBalance":0}'
 # => note the returned "id" as BOB_ID
 
 # 2. Happy path transfer
-curl -s -X POST localhost:8080/api/transfers \
+curl -s -X POST localhost:8080/api/transfers -H "$AUTH" \
   -H 'Content-Type: application/json' \
   -d "{\"fromAccountId\":\"$ALICE_ID\",\"toAccountId\":\"$BOB_ID\",\"amount\":100}"
 # => note "sagaId", poll it:
-curl -s localhost:8080/api/transfers/$SAGA_ID
+curl -s -H "$AUTH" localhost:8080/api/transfers/$SAGA_ID
 # status progresses: DEBIT_PENDING -> FRAUD_CHECK_PENDING -> CREDIT_PENDING -> COMPLETED
 
 # 3. Trigger a fraud rejection + compensation
-curl -s -X POST localhost:8080/api/fraud/blacklist/$BOB_ID
-curl -s -X POST localhost:8080/api/transfers \
+curl -s -X POST -H "$AUTH" localhost:8080/api/fraud/blacklist/$BOB_ID   # ADMIN only
+curl -s -X POST localhost:8080/api/transfers -H "$AUTH" \
   -H 'Content-Type: application/json' \
   -d "{\"fromAccountId\":\"$ALICE_ID\",\"toAccountId\":\"$BOB_ID\",\"amount\":50}"
 # => status ends at COMPENSATED; Alice's balance is unaffected (debited then refunded)
 
 # 4. Check notifications
-curl -s localhost:8080/api/notifications/$ALICE_ID
+curl -s -H "$AUTH" localhost:8080/api/notifications/$ALICE_ID
 ```
 
 ## Possible extensions
 
 - Add a config-server for centralized configuration.
 - Replace the rule-based engine with rules + an ML anomaly-scoring model.
-- Add authentication (e.g. Keycloak + Spring Security OAuth2 resource servers) in front of the gateway.
-- Add Testcontainers-based integration tests (spin up real Redis + Kafka per test run).
+- Propagate the user's token to the services (token relay) and make them resource servers too,
+  instead of trusting the internal network.
 - Add an outbox pattern in `account-service`/`orchestrator-service` if you need exactly-once
   publication guarantees stronger than the current at-least-once + idempotency-key approach.

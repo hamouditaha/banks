@@ -1,0 +1,76 @@
+{
+  "realm": "banks",
+  "displayName": "Banks",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "roles": {
+    "realm": [
+      {
+        "name": "ADMIN",
+        "description": "Back-office administrator: full access including the fraud console (/api/fraud/**)"
+      },
+      {
+        "name": "CLIENT",
+        "description": "Authenticated user: accounts, transfers and notifications"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "banks-frontend",
+      "name": "Banks back-office (Angular)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:4200",
+      "baseUrl": "/",
+      "redirectUris": ["http://localhost:4200/*"],
+      "webOrigins": ["http://localhost:4200"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:4200/*"
+      }
+    },
+    {
+      "clientId": "banks-cli",
+      "name": "Command-line demo client (password grant, local demo only)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@banks.local",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["ADMIN", "CLIENT"]
+    },
+    {
+      "username": "client",
+      "enabled": true,
+      "email": "client@banks.local",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Client",
+      "credentials": [{ "type": "password", "value": "client", "temporary": false }],
+      "realmRoles": ["CLIENT"]
+    }
+  ]
+}

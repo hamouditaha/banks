@@ -149,6 +149,19 @@ h3 {
   }
 }
 
+.user-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.user-name {
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .container {
   max-width: 1240px;
   margin: 0 auto;

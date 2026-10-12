@@ -1,5 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { AuthService } from './core/auth.service';
 import { ToastContainerComponent } from './shared/toast-container.component';
 
 @Component({
@@ -15,8 +16,16 @@ import { ToastContainerComponent } from './shared/toast-container.component';
         <a routerLink="/dashboard" routerLinkActive="active">Tableau de bord</a>
         <a routerLink="/accounts" routerLinkActive="active">Comptes</a>
         <a routerLink="/transfers" routerLinkActive="active">Virements</a>
-        <a routerLink="/fraud" routerLinkActive="active">Anti-fraude</a>
+        @if (auth.isAdmin()) {
+          <a routerLink="/fraud" routerLinkActive="active">Anti-fraude</a>
+        }
       </nav>
+      @if (auth.enabled) {
+        <div class="user-menu">
+          <span class="user-name">{{ auth.username }}</span>
+          <button type="button" class="btn btn-secondary btn-small" (click)="auth.logout()">Déconnexion</button>
+        </div>
+      }
     </header>
     <main class="container">
       <router-outlet />
@@ -24,4 +33,6 @@ import { ToastContainerComponent } from './shared/toast-container.component';
     <app-toast-container />
   `,
 })
-export class AppComponent {}
+export class AppComponent {
+  readonly auth = inject(AuthService);
+}

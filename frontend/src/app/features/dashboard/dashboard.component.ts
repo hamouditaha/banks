@@ -3,6 +3,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { Account, FraudEvaluation, isTerminal, Transfer } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { ShortIdPipe } from '../../shared/short-id.pipe';
@@ -38,11 +39,13 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
         <span class="kpi-value">{{ transfers().length }}</span>
         <span class="kpi-hint">{{ successRate() | number: '1.0-0' }} % réussis</span>
       </div>
-      <div class="kpi kpi-alert">
-        <span class="kpi-label">Rejets fraude</span>
-        <span class="kpi-value">{{ rejectedCount() }}</span>
-        <span class="kpi-hint">sur {{ evaluations().length }} analyses</span>
-      </div>
+      @if (isAdmin) {
+        <div class="kpi kpi-alert">
+          <span class="kpi-label">Rejets fraude</span>
+          <span class="kpi-value">{{ rejectedCount() }}</span>
+          <span class="kpi-hint">sur {{ evaluations().length }} analyses</span>
+        </div>
+      }
     </section>
 
     <div class="grid-2">
@@ -72,6 +75,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
         }
       </section>
 
+      @if (isAdmin) {
       <section class="card">
         <div class="card-header">
           <h2>Alertes fraude récentes</h2>
@@ -98,12 +102,14 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
           </ul>
         }
       </section>
+      }
     </div>
   `,
 })
 export class DashboardComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  readonly isAdmin = inject(AuthService).isAdmin();
 
   readonly loading = signal(false);
   readonly accounts = signal<Account[]>([]);
@@ -141,7 +147,10 @@ export class DashboardComponent implements OnInit {
     forkJoin({
       accounts: this.api.listAccounts().pipe(catchError(() => fallback<Account[]>([]))),
       transfers: this.api.listTransfers().pipe(catchError(() => fallback<Transfer[]>([]))),
-      evaluations: this.api.listFraudEvaluations(200).pipe(catchError(() => fallback<FraudEvaluation[]>([]))),
+      // Fraud decisions are ADMIN-only on the gateway; other users simply don't see that part.
+      evaluations: this.isAdmin
+        ? this.api.listFraudEvaluations(200).pipe(catchError(() => fallback<FraudEvaluation[]>([])))
+        : of<FraudEvaluation[]>([]),
     }).subscribe(({ accounts, transfers, evaluations }) => {
       this.accounts.set(accounts);
       this.transfers.set(transfers);

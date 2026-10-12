@@ -4,6 +4,14 @@ server:
 spring:
   application:
     name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # Must match the "iss" claim, i.e. the Keycloak URL as seen by the browser.
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8180/realms/banks}
+          # Where the gateway itself fetches the signing keys (differs from the issuer inside Docker).
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8180/realms/banks/protocol/openid-connect/certs}
   cloud:
     gateway:
       discovery:

@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from './core/admin.guard';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -30,6 +31,7 @@ export const routes: Routes = [
   {
     path: 'fraud',
     title: 'Anti-fraude · Banks',
+    canActivate: [adminGuard],
     loadComponent: () => import('./features/fraud/fraud.component').then((m) => m.FraudComponent),
   },
   { path: '**', redirectTo: 'dashboard' },

@@ -32,6 +32,8 @@ module.exports = function (config) {
         flags: ['--no-sandbox', '--disable-dev-shm-usage']
       }
     },
+    // Generous timeout: slow/shared CI machines can take a while to load the test bundle.
+    browserNoActivityTimeout: 120000,
     restartOnFileChange: true
   });
 };

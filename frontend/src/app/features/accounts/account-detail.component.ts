@@ -4,6 +4,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { Account, AccountStatus, Notification, Transfer } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { ShortIdPipe } from '../../shared/short-id.pipe';
@@ -55,9 +56,11 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
               @if (a.status !== 'CLOSED') {
                 <button class="btn btn-danger" (click)="close()" [disabled]="busy()">Clôturer le compte</button>
               }
-              <button class="btn btn-secondary" (click)="toggleBlacklist()" [disabled]="busy()">
-                {{ blacklisted() ? 'Retirer de la liste noire' : 'Ajouter à la liste noire' }}
-              </button>
+              @if (isAdmin) {
+                <button class="btn btn-secondary" (click)="toggleBlacklist()" [disabled]="busy()">
+                  {{ blacklisted() ? 'Retirer de la liste noire' : 'Ajouter à la liste noire' }}
+                </button>
+              }
             </div>
             @if (blacklisted()) {
               <p class="warning-note">Ce compte est sur liste noire : tout virement l'impliquant sera rejeté puis remboursé.</p>
@@ -130,6 +133,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
 export class AccountDetailComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  readonly isAdmin = inject(AuthService).isAdmin();
 
   /** Bound from the :id route parameter. */
   readonly id = input.required<string>();
@@ -172,7 +176,7 @@ export class AccountDetailComponent {
     forkJoin({
       transfers: this.api.listTransfers(id).pipe(catchError(() => of([] as Transfer[]))),
       notifications: this.api.listNotifications(id).pipe(catchError(() => of([] as Notification[]))),
-      blacklist: this.api.listBlacklist().pipe(catchError(() => of([] as string[]))),
+      blacklist: this.isAdmin ? this.api.listBlacklist().pipe(catchError(() => of([] as string[]))) : of([] as string[]),
       accounts: this.api.listAccounts().pipe(catchError(() => of([] as Account[]))),
     }).subscribe(({ transfers, notifications, blacklist, accounts }) => {
       this.transfers.set(transfers);
