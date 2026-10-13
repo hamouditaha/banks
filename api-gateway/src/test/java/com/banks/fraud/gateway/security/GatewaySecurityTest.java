@@ -52,6 +52,15 @@ class GatewaySecurityTest {
     }
 
     @Test
+    void accountStatusChangesAreReservedToAdmins() {
+        client.mutateWith(withRealmRoles("CLIENT")).patch().uri("/api/accounts/abc/status")
+                .exchange().expectStatus().isForbidden();
+        assertLetThrough(client.mutateWith(withRealmRoles("ADMIN")).patch().uri("/api/accounts/abc/status").exchange());
+        // Deposits stay open to every authenticated user.
+        assertLetThrough(client.mutateWith(withRealmRoles("CLIENT")).post().uri("/api/accounts/abc/deposit").exchange());
+    }
+
+    @Test
     void tokenWithoutRealmRolesCannotReachFraudRoutes() {
         client.mutateWith(withRealmRoles()).get().uri("/api/fraud/evaluations")
                 .exchange().expectStatus().isForbidden();

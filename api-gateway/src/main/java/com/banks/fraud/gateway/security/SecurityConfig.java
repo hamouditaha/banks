@@ -16,7 +16,7 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 
 /**
  * The gateway is an OAuth2 resource server: every /api call needs a valid Keycloak JWT,
- * and the fraud back-office (/api/fraud/**) is restricted to the ADMIN realm role.
+ * and the back-office (/api/fraud/**, account status changes) is restricted to the ADMIN realm role.
  * The "dev" profile swaps this for an open chain so the stack can be demoed without Keycloak.
  */
 @Configuration
@@ -37,6 +37,7 @@ public class SecurityConfig {
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
                         .pathMatchers("/actuator/health/**", "/actuator/info").permitAll()
                         .pathMatchers("/api/fraud/**").hasRole("ADMIN")
+                        .pathMatchers(HttpMethod.PATCH, "/api/accounts/*/status").hasRole("ADMIN")
                         .anyExchange().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(new ReactiveJwtAuthenticationConverterAdapter(jwtConverter))))
