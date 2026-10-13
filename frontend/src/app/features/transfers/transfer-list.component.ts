@@ -7,14 +7,33 @@ import { interval } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { Account, isTerminal, SagaStatus, Transfer } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
+import { downloadCsv, toCsv } from '../../shared/csv';
 import { ShortIdPipe } from '../../shared/short-id.pipe';
-import { StatusBadgeComponent } from '../../shared/status-badge.component';
+import { StatusBadgeComponent, statusLabel } from '../../shared/status-badge.component';
 
 type Filter = 'ALL' | 'IN_PROGRESS' | SagaStatus;
 
-function differentAccounts(group: AbstractControl): ValidationErrors | null {
+export function differentAccounts(group: AbstractControl): ValidationErrors | null {
   const { fromAccountId, toAccountId } = group.value;
   return fromAccountId && fromAccountId === toAccountId ? { sameAccount: true } : null;
+}
+
+export function transfersToCsv(transfers: Transfer[], owners: Map<string, string>): string {
+  return toCsv([
+    ['Saga', 'Émetteur', 'Compte émetteur', 'Bénéficiaire', 'Compte bénéficiaire', 'Montant', 'Statut', 'Motif', 'Créé le'],
+    ...transfers.map((t) => [
+      t.sagaId,
+      owners.get(t.fromAccountId),
+      t.fromAccountId,
+      owners.get(t.toAccountId),
+      t.toAccountId,
+      // Decimal comma so French Excel reads the column as numbers.
+      t.amount.toFixed(2).replace('.', ','),
+      statusLabel(t.status),
+      t.reason,
+      t.createdAt,
+    ]),
+  ]);
 }
 
 @Component({
@@ -78,6 +97,9 @@ function differentAccounts(group: AbstractControl): ValidationErrors | null {
               <button type="button" [class.active]="filter() === f.value" (click)="filter.set(f.value)">{{ f.label }}</button>
             }
           </div>
+          <button type="button" class="btn btn-secondary btn-small" (click)="exportCsv()" [disabled]="filtered().length === 0">
+            Exporter CSV
+          </button>
         </div>
         @if (filtered().length === 0) {
           <p class="empty">Aucun virement.</p>
@@ -190,6 +212,11 @@ export class TransferListComponent implements OnInit {
         this.toast.error(err, 'Virement impossible');
       },
     });
+  }
+
+  /** Downloads the transfers currently shown (the active filter applies). */
+  exportCsv(): void {
+    downloadCsv(`virements-${new Date().toISOString().slice(0, 10)}.csv`, transfersToCsv(this.filtered(), this.owners()));
   }
 
   private refreshTransfers(): void {

@@ -44,28 +44,29 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
             </form>
           </section>
 
-          <section class="card">
-            <h2>Administration</h2>
-            <div class="button-col">
-              @if (a.status === 'ACTIVE') {
-                <button class="btn btn-secondary" (click)="setStatus('BLOCKED')" [disabled]="busy()">Bloquer le compte</button>
-              }
-              @if (a.status === 'BLOCKED') {
-                <button class="btn btn-secondary" (click)="setStatus('ACTIVE')" [disabled]="busy()">Débloquer le compte</button>
-              }
-              @if (a.status !== 'CLOSED') {
-                <button class="btn btn-danger" (click)="close()" [disabled]="busy()">Clôturer le compte</button>
-              }
-              @if (isAdmin) {
+          <!-- Back-office actions: only shown to the ADMIN realm role. -->
+          @if (isAdmin) {
+            <section class="card">
+              <h2>Administration</h2>
+              <div class="button-col">
+                @if (a.status === 'ACTIVE') {
+                  <button class="btn btn-secondary" (click)="setStatus('BLOCKED')" [disabled]="busy()">Bloquer le compte</button>
+                }
+                @if (a.status === 'BLOCKED') {
+                  <button class="btn btn-secondary" (click)="setStatus('ACTIVE')" [disabled]="busy()">Débloquer le compte</button>
+                }
+                @if (a.status !== 'CLOSED') {
+                  <button class="btn btn-danger" (click)="close()" [disabled]="busy()">Clôturer le compte</button>
+                }
                 <button class="btn btn-secondary" (click)="toggleBlacklist()" [disabled]="busy()">
                   {{ blacklisted() ? 'Retirer de la liste noire' : 'Ajouter à la liste noire' }}
                 </button>
+              </div>
+              @if (blacklisted()) {
+                <p class="warning-note">Ce compte est sur liste noire : tout virement l'impliquant sera rejeté puis remboursé.</p>
               }
-            </div>
-            @if (blacklisted()) {
-              <p class="warning-note">Ce compte est sur liste noire : tout virement l'impliquant sera rejeté puis remboursé.</p>
-            }
-          </section>
+            </section>
+          }
         </div>
 
         <div class="stack">

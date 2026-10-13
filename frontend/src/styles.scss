@@ -807,6 +807,168 @@ select {
   }
 }
 
+/* Charts */
+
+.bar-plot {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding-top: 1.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.bar-slot {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  outline: none;
+  cursor: default;
+
+  &:focus-visible .bar {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+.bar {
+  width: min(36px, 70%);
+  min-height: 2px;
+  border-radius: 4px 4px 0 0;
+  background: var(--primary);
+  opacity: 0.85;
+  transition: height 0.3s, opacity 0.15s;
+
+  &.bar-active {
+    opacity: 1;
+  }
+}
+
+.bar-value,
+.bar-tooltip {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.bar-tooltip {
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.bar-axis {
+  display: flex;
+  gap: 2px;
+  margin-top: 0.4rem;
+
+  span {
+    flex: 1;
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.outcome-bar {
+  display: flex;
+  gap: 2px;
+  height: 14px;
+  margin: 0.25rem 0 1rem;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-2);
+
+  span {
+    min-width: 4px;
+  }
+}
+
+.tone-success {
+  background: var(--success);
+}
+
+.tone-warning {
+  background: var(--warning);
+}
+
+.tone-danger {
+  background: var(--danger);
+}
+
+.tone-info {
+  background: var(--info);
+}
+
+.outcome-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+}
+
+/* Not found */
+
+.not-found {
+  text-align: center;
+  padding: 4rem 1rem;
+
+  .code {
+    font-size: 4rem;
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+  }
+
+  h1 {
+    justify-content: center;
+  }
+
+  p {
+    color: var(--text-muted);
+    margin: 0.75rem 0 1.5rem;
+  }
+}
+
 /* Toasts */
 
 .toasts {

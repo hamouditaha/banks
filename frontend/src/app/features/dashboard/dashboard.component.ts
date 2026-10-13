@@ -1,17 +1,19 @@
-import { CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { CurrencyPipe, DatePipe, DecimalPipe, formatDate, formatNumber } from '@angular/common';
+import { Component, computed, inject, LOCALE_ID, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { catchError, forkJoin, of } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { Account, FraudEvaluation, isTerminal, Transfer } from '../../core/models';
+import { dailyVolume, outcomeBreakdown } from '../../core/stats';
 import { ToastService } from '../../core/toast.service';
+import { Bar, BarChartComponent } from '../../shared/bar-chart.component';
 import { ShortIdPipe } from '../../shared/short-id.pipe';
 import { StatusBadgeComponent } from '../../shared/status-badge.component';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [RouterLink, CurrencyPipe, DatePipe, DecimalPipe, ShortIdPipe, StatusBadgeComponent],
+  imports: [RouterLink, CurrencyPipe, DatePipe, DecimalPipe, ShortIdPipe, StatusBadgeComponent, BarChartComponent],
   template: `
     <div class="page-header">
       <div>
@@ -47,6 +49,44 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
         </div>
       }
     </section>
+
+    <div class="grid-2">
+      <section class="card">
+        <div class="card-header">
+          <h2>Virements par jour</h2>
+          <span class="muted">7 derniers jours</span>
+        </div>
+        <app-bar-chart [bars]="dailyBars()" unit="virement(s)" />
+      </section>
+
+      <section class="card">
+        <div class="card-header">
+          <h2>Issue des virements</h2>
+          <span class="muted">{{ transfers().length }} au total</span>
+        </div>
+        @if (transfers().length === 0) {
+          <p class="empty">Aucun virement pour l'instant.</p>
+        } @else {
+          <div class="outcome-bar" role="img" [attr.aria-label]="outcomeSummary()">
+            @for (o of outcomes(); track o.outcome) {
+              @if (o.count > 0) {
+                <span [class]="'tone-' + o.tone" [style.flex-grow]="o.count" [title]="o.label + ' : ' + o.count"></span>
+              }
+            }
+          </div>
+          <ul class="outcome-legend">
+            @for (o of outcomes(); track o.outcome) {
+              <li>
+                <span [class]="'swatch tone-' + o.tone"></span>
+                <span>{{ o.label }}</span>
+                <strong>{{ o.count }}</strong>
+                <span class="muted">{{ o.percent | number: '1.0-0' }} %</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
 
     <div class="grid-2">
       <section class="card">
@@ -109,6 +149,7 @@ import { StatusBadgeComponent } from '../../shared/status-badge.component';
 export class DashboardComponent implements OnInit {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
+  private readonly locale = inject(LOCALE_ID);
   readonly isAdmin = inject(AuthService).isAdmin();
 
   readonly loading = signal(false);
@@ -132,6 +173,19 @@ export class DashboardComponent implements OnInit {
   readonly rejectedCount = computed(() => this.evaluations().filter((e) => !e.approved).length);
   readonly recentTransfers = computed(() => this.transfers().slice(0, 6));
   readonly recentAlerts = computed(() => this.evaluations().filter((e) => !e.approved).slice(0, 6));
+  readonly dailyBars = computed<Bar[]>(() =>
+    dailyVolume(this.transfers()).map((d) => ({
+      label: formatDate(d.day, 'EEE d', this.locale),
+      value: d.count,
+      detail: `${formatNumber(d.amount, this.locale, '1.0-2')} au total`,
+    })),
+  );
+  readonly outcomes = computed(() => outcomeBreakdown(this.transfers()));
+  readonly outcomeSummary = computed(() =>
+    this.outcomes()
+      .map((o) => `${o.label} : ${o.count}`)
+      .join(', '),
+  );
 
   ngOnInit(): void {
     this.load();

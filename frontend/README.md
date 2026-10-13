@@ -1,59 +1,52 @@
-# Frontend
+# Banks frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.27.
+Angular 19 back-office for the Banks platform: standalone components, signals, lazy-loaded routes,
+no UI library. All calls go to the api-gateway under `/api` (dev proxy or nginx).
 
-## Development server
-
-To start a local development server, run:
-
-```bash
-ng serve
-```
-
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Run
 
 ```bash
-ng generate component component-name
+npm install
+npm start            # http://localhost:4200, no login - needs the gateway on the "dev" profile
+npm run start:auth   # same, with Keycloak login (http://localhost:8180, users admin/admin and client/client)
+npm run build        # production bundle in dist/frontend (Keycloak enabled)
+npm test             # Karma, watch mode
+npm run test:ci      # single headless run with coverage (set CHROME_BIN if Chrome is not installed)
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## Screens
 
-```bash
-ng generate --help
+| Route | What it does |
+|---|---|
+| `/dashboard` | KPIs, transfers per day (last 7 days), how transfers ended, latest transfers, fraud alerts (ADMIN) |
+| `/accounts` | Open an account, search accounts |
+| `/accounts/:id` | Balance, deposit, transfers and notifications of the account; block / close / blacklist (ADMIN) |
+| `/transfers` | New transfer, history with status filters, CSV export of the filtered list |
+| `/transfers/:id` | Live saga tracking (polls until a terminal status): stepper, journal, fraud decision (ADMIN) |
+| `/fraud` | ADMIN only: active rules, blacklist, recent decisions |
+
+Anything else shows a 404 page.
+
+## Roles
+
+The UI reads the Keycloak realm roles from the token (`AuthService`):
+
+- **ADMIN** sees everything.
+- **CLIENT** does not get the fraud console, the fraud widgets or the account back-office actions,
+  and the UI never calls `/api/fraud/**` for them (the gateway would answer 403).
+
+Hiding a button is not a security control: the gateway enforces the same rules on its own
+(`/api/fraud/**` and account status changes are ADMIN-only).
+Without Keycloak (`npm start`) the user is treated as an admin so every screen is reachable.
+
+## Layout
+
+```
+src/app
+  core/       ApiService (typed gateway client), models, auth (service, interceptor, guard),
+              toasts, dashboard stats, test fixtures
+  shared/     status badge, short-id pipe, bar chart, CSV helpers, toast container
+  features/   one folder per screen (dashboard, accounts, transfers, fraud, not-found)
 ```
 
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Karma](https://karma-runner.github.io) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Styles live in `src/styles.scss` (CSS variables, light and dark themes).

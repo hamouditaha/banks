@@ -4,6 +4,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { catchError, of, Subscription, switchMap, takeWhile, timer } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { AuthService } from '../../core/auth.service';
 import { Account, FraudEvaluation, isTerminal, parseHistory, SagaStatus, Transfer } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { StatusBadgeComponent, statusLabel } from '../../shared/status-badge.component';
@@ -119,6 +120,7 @@ export class TransferDetailComponent {
   private readonly api = inject(ApiService);
   private readonly toast = inject(ToastService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly isAdmin = inject(AuthService).isAdmin();
   private polling?: Subscription;
 
   /** Bound from the :id route parameter (the saga id). */
@@ -193,6 +195,8 @@ export class TransferDetailComponent {
   }
 
   private loadEvaluation(sagaId: string): void {
+    // Fraud decisions are ADMIN-only on the gateway: don't fire a request that can only 403.
+    if (!this.isAdmin) return;
     this.api
       .listFraudEvaluations(500)
       .pipe(catchError(() => of([] as FraudEvaluation[])))
@@ -201,7 +205,7 @@ export class TransferDetailComponent {
 }
 
 /** Maps the saga's current status and visited statuses onto the visual stepper. */
-function buildSteps(status: SagaStatus, seen: Set<SagaStatus>): Step[] {
+export function buildSteps(status: SagaStatus, seen: Set<SagaStatus>): Step[] {
   const state = (current: SagaStatus, done: boolean, failed: boolean): StepState =>
     failed ? 'failed' : done ? 'done' : status === current ? 'current' : 'pending';
 

@@ -34,5 +34,9 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadComponent: () => import('./features/fraud/fraud.component').then((m) => m.FraudComponent),
   },
-  { path: '**', redirectTo: 'dashboard' },
+  {
+    path: '**',
+    title: 'Page introuvable · Banks',
+    loadComponent: () => import('./features/not-found/not-found.component').then((m) => m.NotFoundComponent),
+  },
 ];

@@ -245,8 +245,8 @@ cd frontend && npm test     # Angular unit tests (Karma); npm run test:ci for he
 | Unit - saga state machine | `orchestrator-service` `SagaOrchestratorTest`, `TransferServiceTest` | Every transition: `DEBIT_PENDING → FRAUD_CHECK_PENDING → CREDIT_PENDING → COMPLETED`; debit failure → `FAILED`; fraud rejection and credit failure → `COMPENSATING` → refund → `COMPENSATED` (or `FAILED` if the refund fails); duplicate/out-of-order replies are ignored in every state and never publish twice |
 | Integration - idempotency | `account-service` `AccountCommandIdempotencyIT` (real Redis) | A debit/credit/refund command replayed with the same `sagaId:step` moves the balance once - also with 8 concurrent deliveries; a cached failure is replayed as a failure |
 | End-to-end - the saga | `integration-tests` `TransferSagaEndToEndIT` (real Kafka + Redis) | Boots the real account, fraud, orchestrator and notification services, then over REST: two accounts, transfer → `COMPLETED` with correct balances; blacklisted receiver → `COMPENSATED` with the sender's balance restored; insufficient funds → `FAILED`; notifications delivered |
-| Security | `api-gateway` `GatewaySecurityTest`, `GatewayDevProfileTest` | 401 without a token, 403 for `CLIENT` on `/api/fraud/**`, `ADMIN` let through, CORS preflight, open `dev` profile |
-| Frontend | `frontend/src/**/*.spec.ts` | Bearer-token interceptor (refresh, no token leak to other hosts, re-login), roles and admin guard, saga history parsing |
+| Security | `api-gateway` `GatewaySecurityTest`, `GatewayDevProfileTest` | 401 without a token, 403 for `CLIENT` on `/api/fraud/**` and account status changes, `ADMIN` let through, CORS preflight, open `dev` profile |
+| Frontend | `frontend/src/**/*.spec.ts` | Bearer-token interceptor (refresh, no token leak to other hosts, re-login), roles and admin guard, saga history parsing and stepper, transfer form and CSV export, role-based account actions, dashboard stats and chart |
 | Fraud rules | `fraud-detection-service` `FraudRuleEngineTest` | Blacklist, amount thresholds, velocity scoring |
 
 Integration tests are named `*IT` and run by Failsafe in `mvn verify`; JUnit 5, Mockito, AssertJ,
@@ -273,6 +273,7 @@ browser ──login (PKCE)──► Keycloak :8180 ──JWT──► browser �
   | Path | Access |
   |---|---|
   | `/api/fraud/**` | `ADMIN` |
+  | `PATCH /api/accounts/*/status` (block, unblock, close) | `ADMIN` |
   | `/api/**` (accounts, transfers, notifications) | any authenticated user |
   | `/actuator/health`, CORS preflight | public |
 
